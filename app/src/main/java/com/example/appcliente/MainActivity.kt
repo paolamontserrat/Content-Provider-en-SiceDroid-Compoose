@@ -101,7 +101,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     LazyColumn(modifier = Modifier.padding(8.dp)) {
                         items(debugLogs) { log ->
-                            Text(log, color = if(log.contains("❌")) Color.Red else Color.Cyan,
+                            Text(log, color = if(log.contains("X")) Color.Red else Color.Cyan,
                                 fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                         }
                     }
@@ -133,11 +133,9 @@ class MainActivity : ComponentActivity() {
                 val iNom = c.getColumnIndex("nombre")
                 val iDoc = c.getColumnIndex("docente")
                 val iGru = c.getColumnIndex("grupo")
-
-                // Columnas de días
                 val iLun = c.getColumnIndex("lunes")
                 val iMar = c.getColumnIndex("martes")
-                val iMie = c.getColumnIndex("muercoles") // Nota: mantengo el nombre del log
+                val iMie = c.getColumnIndex("muercoles")
                 val iJue = c.getColumnIndex("jueves")
                 val iVie = c.getColumnIndex("viernes")
 
@@ -157,9 +155,9 @@ class MainActivity : ComponentActivity() {
 
                     list.add(Materia(nombre, docente, dias, grupo))
                 }
-                log("✅ Éxito: ${list.size} materias obtenidas.")
-            } ?: log("❌ Error: Cursor nulo")
-        } catch (e: Exception) { log("❌ Excepción: ${e.message}") }
+                log("Éxito: ${list.size} materias obtenidas.")
+            } ?: log(" Error: Cursor nulo")
+        } catch (e: Exception) { log(" Excepción: ${e.message}") }
         return list
     }
 
@@ -178,9 +176,9 @@ class MainActivity : ComponentActivity() {
                     val per = if(iPer != -1) c.getString(iPer) ?: "Sin Periodo" else "Sin Periodo"
                     list.add(KardexItem(mat, cal, per))
                 }
-                log("✅ Éxito: ${list.size} registros en Kardex.")
-            } ?: log("❌ Error: Cursor Kardex nulo")
-        } catch (e: Exception) { log("❌ Excepción Kardex: ${e.message}") }
+                log("Éxito: ${list.size} registros en Kardex.")
+            } ?: log("Error: Cursor Kardex nulo")
+        } catch (e: Exception) { log("Excepción Kardex: ${e.message}") }
         return list
     }
 }
