@@ -250,7 +250,6 @@ fun CargaTab(onQuery: () -> Unit, items: List<Materia>) {
 
 @Composable
 fun KardexTab(onQuery: () -> Unit, items: List<KardexItem>) {
-    // Agrupamos los elementos por periodo
     val groupedItems = items.groupBy { it.periodo }
 
     Column {
@@ -267,7 +266,6 @@ fun KardexTab(onQuery: () -> Unit, items: List<KardexItem>) {
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 groupedItems.forEach { (periodo, kardexList) ->
-                    // Encabezado de Periodo
                     item {
                         Surface(
                             color = MaterialTheme.colorScheme.secondaryContainer,
