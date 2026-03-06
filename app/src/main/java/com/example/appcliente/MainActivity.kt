@@ -112,7 +112,10 @@ class MainActivity : ComponentActivity() {
                         listaKardex = queryKardex(::addLog)
                     }, items = listaKardex)
 
-                    2 -> SeguridadTab(::addLog)
+                    2 -> SeguridadTab(
+                        log = ::addLog, 
+                        onDataChanged = { listaMaterias = queryMaterias(::addLog) }
+                    )
                 }
             }
         }
@@ -124,12 +127,13 @@ class MainActivity : ComponentActivity() {
         val uri = Uri.parse("content://com.example.sicenet.provider/materias")
         try {
             contentResolver.query(uri, null, null, null, null)?.use { c ->
+                c.setNotificationUri(contentResolver, uri)
                 val iNom = c.getColumnIndex("nombre")
                 val iDoc = c.getColumnIndex("docente")
                 val iGru = c.getColumnIndex("grupo")
                 val iLun = c.getColumnIndex("lunes")
                 val iMar = c.getColumnIndex("martes")
-                val iMie = c.getColumnIndex("muercoles")
+                val iMie = c.getColumnIndex("miercoles")
                 val iJue = c.getColumnIndex("jueves")
                 val iVie = c.getColumnIndex("viernes")
 
@@ -161,6 +165,7 @@ class MainActivity : ComponentActivity() {
         val uri = Uri.parse("content://com.example.sicenet.provider/kardex")
         try {
             contentResolver.query(uri, null, null, null, null)?.use { c ->
+                c.setNotificationUri(contentResolver, uri)
                 val iMat = c.getColumnIndex("materia")
                 val iCal = c.getColumnIndex("calificacion")
                 val iPer = c.getColumnIndex("periodo")
@@ -300,7 +305,7 @@ fun KardexTab(onQuery: () -> Unit, items: List<KardexItem>) {
 
 //vista para pruebas de seguridad y CRUD
 @Composable
-fun SeguridadTab(log: (String) -> Unit) {
+fun SeguridadTab(log: (String) -> Unit, onDataChanged: () -> Unit) {
     val context = LocalContext.current
     val uri = Uri.parse("content://com.example.sicenet.provider/materias")
     
@@ -320,6 +325,7 @@ fun SeguridadTab(log: (String) -> Unit) {
                 val resultUri = context.contentResolver.insert(uri, values)
                 if (resultUri != null) {
                     log("Insert exitoso: $resultUri")
+                    onDataChanged()
                 } else {
                     log("Error: El Provider devolvió null (posible restricción de DB)")
                 }
@@ -327,14 +333,15 @@ fun SeguridadTab(log: (String) -> Unit) {
                 log("Seguridad Escritura: Error al insertar (Correcto): ${e.message}")
             }
         }, modifier = Modifier.fillMaxWidth()) {
-            Text("PROBAR INSERT Completo")
+            Text("PROBAR INSERT")
         }
 
         //Prueba del metodo DELETE (Escritura)
         Button(onClick = {
             try {
-                context.contentResolver.delete(uri, null, null)
-                log("Metodo DELETE probado")
+                val deletedRows = context.contentResolver.delete(uri, null, null)
+                log("Metodo DELETE probado: $deletedRows filas eliminadas")
+                onDataChanged()
             } catch (e: Exception) {
                 log("Seguridad Escritura: Error al borrar (Correcto): ${e.message}")
             }
