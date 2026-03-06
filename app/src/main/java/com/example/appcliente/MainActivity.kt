@@ -1,5 +1,6 @@
 package com.example.appcliente
 
+import android.content.ContentValues
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -18,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -26,7 +28,6 @@ import com.example.appcliente.ui.theme.AppClienteTheme
 import java.text.SimpleDateFormat
 import java.util.*
 
-// Modelos de datos ajustados
 data class Materia(val nombre: String, val docente: String, val dias: String, val grupo: String)
 data class KardexItem(val materia: String, val calificacion: String, val periodo: String)
 
@@ -45,21 +46,20 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun SicenetCompleteApp() {
+        //pestaña seleccionada
         var selectedTab by remember { mutableIntStateOf(0) }
-        // val debugLogs = remember { mutableStateListOf<String>() }
 
-        // Estados para los datos
+        //listas de datos obtenidas
         var listaMaterias by remember { mutableStateOf(listOf<Materia>()) }
         var listaKardex by remember { mutableStateOf(listOf<KardexItem>()) }
 
         fun addLog(msg: String) {
-            // val time = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
-            // debugLogs.add("[$time] $msg")
             Log.d("SICENET_CLIENT", msg)
         }
 
         Scaffold(
             topBar = {
+                //barra superior
                 TopAppBar(
                     title = { Text("Sicenet Client - Consulta") },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -69,7 +69,8 @@ class MainActivity : ComponentActivity() {
                 )
             },
             bottomBar = {
-                NavigationBar {
+                // Barra inferior
+                NavigationBar{
                     NavigationBarItem(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
@@ -82,37 +83,27 @@ class MainActivity : ComponentActivity() {
                         icon = { Icon(Icons.Default.List, contentDescription = "Kardex") },
                         label = { Text("Kardex") }
                     )
+                    // Pestaña para probar seguridad y metodos CRUD (Punto 3)
+                    NavigationBarItem(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
+                        icon = { Icon(Icons.Default.Lock, contentDescription = "Seguridad") },
+                        label = { Text("Seguridad") }
+                    )
                 }
             }
         ) { padding ->
+            // Contenedor principal del contenido
             Column(modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
                 .padding(16.dp)) {
-
-                /* 
-                Text("Log de Operaciones:", style = MaterialTheme.typography.labelSmall)
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(100.dp)
-                        .padding(vertical = 4.dp),
-                    color = Color.Black, shape = MaterialTheme.shapes.extraSmall
-                ) {
-                    LazyColumn(modifier = Modifier.padding(8.dp)) {
-                        items(debugLogs) { log ->
-                            Text(log, color = if(log.contains("X")) Color.Red else Color.Cyan,
-                                fontSize = 10.sp, fontFamily = FontFamily.Monospace)
-                        }
-                    }
-                }
-                */
-
                 Spacer(Modifier.height(8.dp))
 
+                // Cambia el contenido segun la pestaña
                 when (selectedTab) {
                     0 -> CargaTab(onQuery = {
-                        addLog("Consultando Carga Académica...")
+                        addLog("Consultando Carga Academica...")
                         listaMaterias = queryMaterias(::addLog)
                     }, items = listaMaterias)
 
@@ -120,11 +111,14 @@ class MainActivity : ComponentActivity() {
                         addLog("Consultando Kardex...")
                         listaKardex = queryKardex(::addLog)
                     }, items = listaKardex)
+
+                    2 -> SeguridadTab(::addLog)
                 }
             }
         }
     }
 
+    // Consulta los datos de materias
     private fun queryMaterias(log: (String) -> Unit): List<Materia> {
         val list = mutableListOf<Materia>()
         val uri = Uri.parse("content://com.example.sicenet.provider/materias")
@@ -151,16 +145,17 @@ class MainActivity : ComponentActivity() {
                     if (iJue != -1 && !c.getString(iJue).isNullOrBlank()) diasList.add("Jue")
                     if (iVie != -1 && !c.getString(iVie).isNullOrBlank()) diasList.add("Vie")
 
-                    val dias = if (diasList.isEmpty()) "Sin días" else diasList.joinToString(", ")
+                    val dias = if (diasList.isEmpty()) "Sin dias" else diasList.joinToString(", ")
 
                     list.add(Materia(nombre, docente, dias, grupo))
                 }
-                log("Éxito: ${list.size} materias obtenidas.")
+                log("Exito: ${list.size} materias obtenidas.")
             } ?: log(" Error: Cursor nulo")
-        } catch (e: Exception) { log(" Excepción: ${e.message}") }
+        } catch (e: Exception) { log(" Excepcion: ${e.message}") }
         return list
     }
 
+    //datos del Kardex
     private fun queryKardex(log: (String) -> Unit): List<KardexItem> {
         val list = mutableListOf<KardexItem>()
         val uri = Uri.parse("content://com.example.sicenet.provider/kardex")
@@ -176,13 +171,14 @@ class MainActivity : ComponentActivity() {
                     val per = if(iPer != -1) c.getString(iPer) ?: "Sin Periodo" else "Sin Periodo"
                     list.add(KardexItem(mat, cal, per))
                 }
-                log("Éxito: ${list.size} registros en Kardex.")
+                log("Exito: ${list.size} registros en Kardex.")
             } ?: log("Error: Cursor Kardex nulo")
-        } catch (e: Exception) { log("Excepción Kardex: ${e.message}") }
+        } catch (e: Exception) { log("Excepcion Kardex: ${e.message}") }
         return list
     }
 }
 
+//pestaña Carga Academica
 @Composable
 fun CargaTab(onQuery: () -> Unit, items: List<Materia>) {
     Column {
@@ -233,7 +229,7 @@ fun CargaTab(onQuery: () -> Unit, items: List<Materia>) {
                                 Icon(Icons.Default.DateRange, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
                                 Spacer(Modifier.width(8.dp))
                                 Text(
-                                    text = "Días: ${materia.dias}",
+                                    text = "Dias: ${materia.dias}",
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -246,6 +242,7 @@ fun CargaTab(onQuery: () -> Unit, items: List<Materia>) {
     }
 }
 
+//vista de la pestaña de Kardex
 @Composable
 fun KardexTab(onQuery: () -> Unit, items: List<KardexItem>) {
     val groupedItems = items.groupBy { it.periodo }
@@ -297,6 +294,52 @@ fun KardexTab(onQuery: () -> Unit, items: List<KardexItem>) {
                     }
                 }
             }
+        }
+    }
+}
+
+//vista para pruebas de seguridad y CRUD
+@Composable
+fun SeguridadTab(log: (String) -> Unit) {
+    val context = LocalContext.current
+    val uri = Uri.parse("content://com.example.sicenet.provider/materias")
+    
+    Column(modifier = Modifier.fillMaxSize()) {
+        Text("Pruebas de Seguridad y CRUD", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(16.dp))
+
+        //Prueba del metodo INSERT (Escritura)
+        Button(onClick = {
+            try {
+                val values = ContentValues().apply {
+                    put("nombre", "Materia de Prueba")
+                    put("docente", "Docente Prueba")
+                    put("grupo", "A")
+                    put("lunes", "10:00-12:00")
+                }
+                val resultUri = context.contentResolver.insert(uri, values)
+                if (resultUri != null) {
+                    log("Insert exitoso: $resultUri")
+                } else {
+                    log("Error: El Provider devolvió null (posible restricción de DB)")
+                }
+            } catch (e: Exception) {
+                log("Seguridad Escritura: Error al insertar (Correcto): ${e.message}")
+            }
+        }, modifier = Modifier.fillMaxWidth()) {
+            Text("PROBAR INSERT Completo")
+        }
+
+        //Prueba del metodo DELETE (Escritura)
+        Button(onClick = {
+            try {
+                context.contentResolver.delete(uri, null, null)
+                log("Metodo DELETE probado")
+            } catch (e: Exception) {
+                log("Seguridad Escritura: Error al borrar (Correcto): ${e.message}")
+            }
+        }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+            Text("PROBAR DELETE")
         }
     }
 }
