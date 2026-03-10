@@ -10,6 +10,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -28,8 +30,9 @@ import com.example.appcliente.ui.theme.AppClienteTheme
 import java.text.SimpleDateFormat
 import java.util.*
 
-data class Materia(val nombre: String, val docente: String, val dias: String, val grupo: String)
-data class KardexItem(val materia: String, val calificacion: String, val periodo: String)
+// Modelos de datos
+data class Materia(val id: String, val nombre: String, val docente: String, val dias: String, val grupo: String)
+data class KardexItem(val id: String, val materia: String, val calificacion: String, val periodo: String)
 
 class MainActivity : ComponentActivity() {
 
@@ -46,88 +49,61 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun SicenetCompleteApp() {
-        //pestaña seleccionada
         var selectedTab by remember { mutableIntStateOf(0) }
+        // val debugLogs = remember { mutableStateListOf<String>() }
 
-        //listas de datos obtenidas
+        // Estados para los datos
         var listaMaterias by remember { mutableStateOf(listOf<Materia>()) }
         var listaKardex by remember { mutableStateOf(listOf<KardexItem>()) }
 
         fun addLog(msg: String) {
+            val time = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+            // debugLogs.add("[$time] $msg")
             Log.d("SICENET_CLIENT", msg)
         }
 
+        // Función para refrescar todo
+        val refreshAll = {
+            listaMaterias = queryMaterias(::addLog)
+            listaKardex = queryKardex(::addLog)
+        }
+
         Scaffold(
-            topBar = {
-                //barra superior
-                TopAppBar(
-                    title = { Text("Sicenet Client - Consulta") },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                )
-            },
+            topBar = { TopAppBar(title = { Text("Sicenet Client Pro") }) },
             bottomBar = {
-                // Barra inferior
-                NavigationBar{
-                    NavigationBarItem(
-                        selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
-                        icon = { Icon(Icons.Default.DateRange, contentDescription = "Carga") },
-                        label = { Text("Carga") }
-                    )
-                    NavigationBarItem(
-                        selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
-                        icon = { Icon(Icons.Default.List, contentDescription = "Kardex") },
-                        label = { Text("Kardex") }
-                    )
-                    // Pestaña para probar seguridad y metodos CRUD (Punto 3)
-                    NavigationBarItem(
-                        selected = selectedTab == 2,
-                        onClick = { selectedTab = 2 },
-                        icon = { Icon(Icons.Default.Lock, contentDescription = "Seguridad") },
-                        label = { Text("Seguridad") }
-                    )
+                NavigationBar {
+                    NavigationBarItem(selected = selectedTab == 0, onClick = { selectedTab = 0 }, icon = { Icon(Icons.Default.DateRange, null) }, label = { Text("Carga") })
+                    NavigationBarItem(selected = selectedTab == 1, onClick = { selectedTab = 1 }, icon = { Icon(Icons.Default.List, null) }, label = { Text("Kardex") })
+                    NavigationBarItem(selected = selectedTab == 2, onClick = { selectedTab = 2 }, icon = { Icon(Icons.Default.Lock, null) }, label = { Text("Seguridad") })
                 }
             }
         ) { padding ->
-            // Contenedor principal del contenido
-            Column(modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .padding(16.dp)) {
+            Column(modifier = Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
+                /*
+                Surface(
+                    modifier = Modifier.fillMaxWidth().height(100.dp).padding(vertical = 4.dp),
+                    color = Color.Black, shape = MaterialTheme.shapes.extraSmall
+                ) {
+                    LazyColumn(modifier = Modifier.padding(8.dp)) {
+                        items(debugLogs) { log -> Text(log, color = Color.Cyan, fontSize = 10.sp, fontFamily = FontFamily.Monospace) }
+                    }
+                }
+                */
                 Spacer(Modifier.height(8.dp))
-
-                // Cambia el contenido segun la pestaña
                 when (selectedTab) {
-                    0 -> CargaTab(onQuery = {
-                        addLog("Consultando Carga Academica...")
-                        listaMaterias = queryMaterias(::addLog)
-                    }, items = listaMaterias)
-
-                    1 -> KardexTab(onQuery = {
-                        addLog("Consultando Kardex...")
-                        listaKardex = queryKardex(::addLog)
-                    }, items = listaKardex)
-
-                    2 -> SeguridadTab(
-                        log = ::addLog, 
-                        onDataChanged = { listaMaterias = queryMaterias(::addLog) }
-                    )
+                    0 -> CargaTab(onQuery = refreshAll, items = listaMaterias, onDelete = { id -> deleteRow("materias", id, ::addLog, refreshAll) })
+                    1 -> KardexTab(onQuery = refreshAll, items = listaKardex, onDelete = { id -> deleteRow("kardex", id, ::addLog, refreshAll) })
+                    2 -> SeguridadTab(log = ::addLog, onDataChanged = refreshAll)
                 }
             }
         }
     }
 
-    // Consulta los datos de materias
     private fun queryMaterias(log: (String) -> Unit): List<Materia> {
         val list = mutableListOf<Materia>()
-        val uri = Uri.parse("content://com.example.sicenet.provider/materias")
         try {
-            contentResolver.query(uri, null, null, null, null)?.use { c ->
-                c.setNotificationUri(contentResolver, uri)
+            contentResolver.query(Uri.parse("content://com.example.sicenet.provider/materias"), null, null, null, null)?.use { c ->
+                val iId = c.getColumnIndex("id")
                 val iNom = c.getColumnIndex("nombre")
                 val iDoc = c.getColumnIndex("docente")
                 val iGru = c.getColumnIndex("grupo")
@@ -136,110 +112,87 @@ class MainActivity : ComponentActivity() {
                 val iMie = c.getColumnIndex("miercoles")
                 val iJue = c.getColumnIndex("jueves")
                 val iVie = c.getColumnIndex("viernes")
+                val iSab = c.getColumnIndex("sabado")
+                val iDom = c.getColumnIndex("domingo")
 
                 while (c.moveToNext()) {
-                    val nombre = if(iNom != -1) c.getString(iNom) ?: "N/A" else "N/A"
-                    val docente = if(iDoc != -1) c.getString(iDoc) ?: "Desconocido" else "Desconocido"
-                    val grupo = if(iGru != -1) c.getString(iGru) ?: "-" else "-"
-
+                    val id = if(iId != -1) c.getString(iId) else "0"
+                    val nom = if(iNom != -1) c.getString(iNom) else "N/A"
+                    val doc = if(iDoc != -1) c.getString(iDoc) else "-"
+                    val gru = if(iGru != -1) c.getString(iGru) ?: "-" else "-"
                     val diasList = mutableListOf<String>()
                     if (iLun != -1 && !c.getString(iLun).isNullOrBlank()) diasList.add("Lun")
                     if (iMar != -1 && !c.getString(iMar).isNullOrBlank()) diasList.add("Mar")
                     if (iMie != -1 && !c.getString(iMie).isNullOrBlank()) diasList.add("Mié")
                     if (iJue != -1 && !c.getString(iJue).isNullOrBlank()) diasList.add("Jue")
                     if (iVie != -1 && !c.getString(iVie).isNullOrBlank()) diasList.add("Vie")
-
-                    val dias = if (diasList.isEmpty()) "Sin dias" else diasList.joinToString(", ")
-
-                    list.add(Materia(nombre, docente, dias, grupo))
+                    if (iSab != -1 && !c.getString(iSab).isNullOrBlank()) diasList.add("Sab")
+                    if (iDom != -1 && !c.getString(iDom).isNullOrBlank()) diasList.add("Dom")
+                    list.add(Materia(id, nom, doc, diasList.joinToString(", "), gru))
                 }
-                log("Exito: ${list.size} materias obtenidas.")
-            } ?: log(" Error: Cursor nulo")
-        } catch (e: Exception) { log(" Excepcion: ${e.message}") }
+                log("Carga: ${list.size} materias.")
+            } ?: log("Sesión cerrada o error.")
+        } catch (e: Exception) { log("Error query: ${e.message}") }
         return list
     }
 
-    //datos del Kardex
     private fun queryKardex(log: (String) -> Unit): List<KardexItem> {
         val list = mutableListOf<KardexItem>()
-        val uri = Uri.parse("content://com.example.sicenet.provider/kardex")
         try {
-            contentResolver.query(uri, null, null, null, null)?.use { c ->
-                c.setNotificationUri(contentResolver, uri)
+            contentResolver.query(Uri.parse("content://com.example.sicenet.provider/kardex"), null, null, null, null)?.use { c ->
+                val iId = c.getColumnIndex("id")
                 val iMat = c.getColumnIndex("materia")
                 val iCal = c.getColumnIndex("calificacion")
                 val iPer = c.getColumnIndex("periodo")
-
                 while (c.moveToNext()) {
-                    val mat = if(iMat != -1) c.getString(iMat) ?: "N/A" else "N/A"
-                    val cal = if(iCal != -1) c.getString(iCal) ?: "S/C" else "S/C"
-                    val per = if(iPer != -1) c.getString(iPer) ?: "Sin Periodo" else "Sin Periodo"
-                    list.add(KardexItem(mat, cal, per))
+                    val id = if(iId != -1) c.getString(iId) else "0"
+                    val mat = if(iMat != -1) c.getString(iMat) else "N/A"
+                    val cal = if(iCal != -1) c.getString(iCal) else "0"
+                    val per = if(iPer != -1) c.getString(iPer) else "2024"
+                    list.add(KardexItem(id, mat, cal, per))
                 }
-                log("Exito: ${list.size} registros en Kardex.")
-            } ?: log("Error: Cursor Kardex nulo")
-        } catch (e: Exception) { log("Excepcion Kardex: ${e.message}") }
+                log("Kardex: ${list.size} registros.")
+            }
+        } catch (e: Exception) { log("Error Kardex: ${e.message}") }
         return list
     }
+
+    private fun deleteRow(table: String, id: String, log: (String) -> Unit, onDone: () -> Unit) {
+        try {
+            val deleted = contentResolver.delete(Uri.parse("content://com.example.sicenet.provider/$table"), "id = ?", arrayOf(id))
+            log("🗑️ Borrado ID $id: $deleted filas")
+            onDone()
+        } catch (e: Exception) { log("Error al borrar: ${e.message}") }
+    }
 }
 
-//pestaña Carga Academica
 @Composable
-fun CargaTab(onQuery: () -> Unit, items: List<Materia>) {
+fun CargaTab(onQuery: () -> Unit, items: List<Materia>, onDelete: (String) -> Unit) {
     Column {
-        Button(
-            onClick = onQuery,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-            shape = MaterialTheme.shapes.medium
-        ) {
-            Icon(Icons.Default.Refresh, null)
-            Spacer(Modifier.width(8.dp))
-            Text("CONSULTAR CARGA")
-        }
-
-        if (items.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No hay datos cargados", color = Color.Gray)
-            }
-        } else {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(items) { materia ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        elevation = CardDefaults.cardElevation(2.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+        Button(onClick = onQuery, modifier = Modifier.fillMaxWidth()) { Text("REFRESCAR CARGA") }
+        LazyColumn(Modifier.fillMaxSize().padding(top = 8.dp)) {
+            items(items) { m ->
+                Card(Modifier.fillMaxWidth().padding(vertical = 4.dp), elevation = CardDefaults.cardElevation(2.dp)) {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = materia.nombre,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Badge { Text("Gpo: ${materia.grupo}") }
+                                Text(m.nombre, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                                Badge { Text("Gpo: ${m.grupo}") }
                             }
-
                             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                            Row {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.Person, null, modifier = Modifier.size(16.dp), tint = Color.Gray)
                                 Spacer(Modifier.width(8.dp))
-                                Text("Docente: ${materia.docente}", style = MaterialTheme.typography.bodyMedium)
+                                Text(m.docente, style = MaterialTheme.typography.bodyMedium)
                             }
-
                             Spacer(Modifier.height(4.dp))
-
-                            Row {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.DateRange, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
                                 Spacer(Modifier.width(8.dp))
-                                Text(
-                                    text = "Dias: ${materia.dias}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                                Text("Días: ${m.dias}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
                             }
                         }
+                        IconButton(onClick = { onDelete(m.id) }) { Icon(Icons.Default.Delete, null, tint = Color.Red) }
                     }
                 }
             }
@@ -247,106 +200,102 @@ fun CargaTab(onQuery: () -> Unit, items: List<Materia>) {
     }
 }
 
-//vista de la pestaña de Kardex
 @Composable
-fun KardexTab(onQuery: () -> Unit, items: List<KardexItem>) {
-    val groupedItems = items.groupBy { it.periodo }
-
+fun KardexTab(onQuery: () -> Unit, items: List<KardexItem>, onDelete: (String) -> Unit) {
+    val grouped = items.groupBy { it.periodo }
     Column {
-        Button(onClick = onQuery, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-            Icon(Icons.Default.Info, null)
+        Button(onClick = onQuery, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Search, null)
             Spacer(Modifier.width(8.dp))
-            Text("CONSULTAR KARDEX")
+            Text("REFRESCAR KARDEX")
         }
-
-        if (items.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No hay datos cargados", color = Color.Gray)
-            }
-        } else {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                groupedItems.forEach { (periodo, kardexList) ->
-                    item {
-                        Surface(
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                        ) {
-                            Text(
-                                text = periodo,
-                                modifier = Modifier.padding(8.dp),
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold
-                            )
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(top = 8.dp)) {
+            grouped.forEach { (periodo, list) ->
+                item {
+                    Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth()) {
+                        Text(periodo, modifier = Modifier.padding(8.dp), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+                items(list) { k ->
+                    ListItem(headlineContent = { Text(k.materia) }, trailingContent = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(k.calificacion, fontWeight = FontWeight.Bold)
+                            IconButton(onClick = { onDelete(k.id) }) { Icon(Icons.Default.Delete, null, tint = Color.Red) }
                         }
-                    }
-                    items(kardexList) { item ->
-                        ListItem(
-                            headlineContent = { Text(item.materia, fontWeight = FontWeight.Medium) },
-                            trailingContent = {
-                                Surface(
-                                    color = MaterialTheme.colorScheme.surfaceVariant,
-                                    shape = MaterialTheme.shapes.small
-                                ) {
-                                    Text(
-                                        text = " ${item.calificacion} ",
-                                        modifier = Modifier.padding(4.dp),
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        )
-                        HorizontalDivider()
-                    }
+                    })
+                    HorizontalDivider()
                 }
             }
         }
     }
 }
 
-//vista para pruebas de seguridad y CRUD
 @Composable
 fun SeguridadTab(log: (String) -> Unit, onDataChanged: () -> Unit) {
     val context = LocalContext.current
-    val uri = Uri.parse("content://com.example.sicenet.provider/materias")
-    
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text("Pruebas de Seguridad y CRUD", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(16.dp))
+    var mClave by remember { mutableStateOf("") }
+    var mNombre by remember { mutableStateOf("") }
+    var mDocente by remember { mutableStateOf("") }
+    var mHora by remember { mutableStateOf("07:00-09:00") }
 
-        //Prueba del metodo INSERT (Escritura)
-        Button(onClick = {
-            try {
-                val values = ContentValues().apply {
-                    put("nombre", "Materia de Prueba")
-                    put("docente", "Docente Prueba")
-                    put("grupo", "A")
-                    put("lunes", "10:00-12:00")
+    val diasLabels = listOf("lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo")
+    val diasSeleccionados = remember { mutableStateMapOf<String, Boolean>().apply {
+        diasLabels.forEach { put(it, false) }
+    } }
+
+    var kClave by remember { mutableStateOf("") }
+    var kMateria by remember { mutableStateOf("") }
+    var kCalificacion by remember { mutableStateOf("") }
+    var kAcreditacion by remember { mutableStateOf("") }
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        Text("CRUD Materias", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        OutlinedTextField(value = mClave, onValueChange = { mClave = it }, label = { Text("Clave Materia") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = mNombre, onValueChange = { mNombre = it }, label = { Text("Nombre Materia") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = mDocente, onValueChange = { mDocente = it }, label = { Text("Docente") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = mHora, onValueChange = { mHora = it }, label = { Text("Horario (ej: 07:00-09:00)") }, modifier = Modifier.fillMaxWidth())
+
+        Text("Seleccionar días:", modifier = Modifier.padding(top = 8.dp), fontWeight = FontWeight.SemiBold)
+        diasLabels.chunked(3).forEach { fila ->
+            Row(Modifier.fillMaxWidth()) {
+                fila.forEach { dia ->
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Checkbox(checked = diasSeleccionados[dia] ?: false, onCheckedChange = { diasSeleccionados[dia] = it })
+                        Text(dia.take(3).replaceFirstChar { it.uppercase() }, fontSize = 12.sp)
+                    }
                 }
-                val resultUri = context.contentResolver.insert(uri, values)
-                if (resultUri != null) {
-                    log("Insert exitoso: $resultUri")
-                    onDataChanged()
-                } else {
-                    log("Error: El Provider devolvió null (posible restricción de DB)")
-                }
-            } catch (e: Exception) {
-                log("Seguridad Escritura: Error al insertar (Correcto): ${e.message}")
             }
-        }, modifier = Modifier.fillMaxWidth()) {
-            Text("PROBAR INSERT")
         }
 
-        //Prueba del metodo DELETE (Escritura)
         Button(onClick = {
             try {
-                val deletedRows = context.contentResolver.delete(uri, null, null)
-                log("Metodo DELETE probado: $deletedRows filas eliminadas")
-                onDataChanged()
-            } catch (e: Exception) {
-                log("Seguridad Escritura: Error al borrar (Correcto): ${e.message}")
-            }
-        }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-            Text("PROBAR DELETE")
-        }
+                val v = ContentValues().apply {
+                    put("clave", mClave); put("nombre", mNombre); put("docente", mDocente)
+                    put("grupo", "A"); put("creditos", 5); put("aula", "S/A")
+                    diasLabels.forEach { dia -> put(dia, if (diasSeleccionados[dia] == true) mHora else "") }
+                    put("lastUpdate", System.currentTimeMillis())
+                }
+                context.contentResolver.insert(Uri.parse("content://com.example.sicenet.provider/materias"), v)
+                log("Materia OK"); onDataChanged()
+            } catch (e: Exception) { log("Error Materias: ${e.message}") }
+        }, Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Insertar Materia") }
+
+        Spacer(Modifier.height(20.dp))
+        Text("CRUD Kardex", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+        OutlinedTextField(value = kClave, onValueChange = { kClave = it }, label = { Text("Clave Kardex") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = kMateria, onValueChange = { kMateria = it }, label = { Text("Nombre Materia") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = kCalificacion, onValueChange = { kCalificacion = it }, label = { Text("Calificación") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = kAcreditacion, onValueChange = { kAcreditacion = it }, label = { Text("Acreditación") }, modifier = Modifier.fillMaxWidth())
+        Button(onClick = {
+            try {
+                val v = ContentValues().apply {
+                    put("clave", kClave); put("materia", kMateria)
+                    put("calificacion", kCalificacion); put("acreditacion", kAcreditacion)
+                    put("periodo", "2024"); put("lastUpdate", System.currentTimeMillis())
+                }
+                context.contentResolver.insert(Uri.parse("content://com.example.sicenet.provider/kardex"), v)
+                log("Kardex OK"); onDataChanged()
+            } catch (e: Exception) { log("Error Kardex: ${e.message}") }
+        }, Modifier.fillMaxWidth()) { Text("Insertar Kardex") }
     }
 }
