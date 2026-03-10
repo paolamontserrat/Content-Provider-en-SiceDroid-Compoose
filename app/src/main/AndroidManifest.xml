@@ -5,7 +5,6 @@
     <uses-permission android:name="com.example.sicenet.READ_SICENET" />
     <uses-permission android:name="com.example.sicenet.WRITE_SICENET" />
 
-
     <queries>
         <package android:name="com.example.sicenet" />
         <provider android:authorities="com.example.sicenet.provider" />

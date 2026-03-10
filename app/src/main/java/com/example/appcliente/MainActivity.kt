@@ -35,7 +35,6 @@ data class Materia(val id: String, val nombre: String, val docente: String, val 
 data class KardexItem(val id: String, val materia: String, val calificacion: String, val periodo: String)
 
 class MainActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
