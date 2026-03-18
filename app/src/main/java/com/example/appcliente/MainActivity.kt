@@ -92,7 +92,10 @@ class MainActivity : ComponentActivity() {
                 when (selectedTab) {
                     0 -> CargaTab(onQuery = refreshAll, items = listaMaterias, onDelete = { id -> deleteRow("materias", id, ::addLog, refreshAll) })
                     1 -> KardexTab(onQuery = refreshAll, items = listaKardex, onDelete = { id -> deleteRow("kardex", id, ::addLog, refreshAll) })
-                    2 -> SeguridadTab(log = ::addLog, onDataChanged = refreshAll)
+                    2 -> SeguridadTab(log = ::addLog, onDataChanged = { targetTab ->
+                        refreshAll()
+                        selectedTab = targetTab
+                    })
                 }
             }
         }
@@ -230,7 +233,7 @@ fun KardexTab(onQuery: () -> Unit, items: List<KardexItem>, onDelete: (String) -
 }
 
 @Composable
-fun SeguridadTab(log: (String) -> Unit, onDataChanged: () -> Unit) {
+fun SeguridadTab(log: (String) -> Unit, onDataChanged: (Int) -> Unit) {
     val context = LocalContext.current
     var mClave by remember { mutableStateOf("") }
     var mNombre by remember { mutableStateOf("") }
@@ -275,7 +278,7 @@ fun SeguridadTab(log: (String) -> Unit, onDataChanged: () -> Unit) {
                     put("lastUpdate", System.currentTimeMillis())
                 }
                 context.contentResolver.insert(Uri.parse("content://com.example.sicenet.provider/materias"), v)
-                log("Materia OK"); onDataChanged()
+                log("Materia OK"); onDataChanged(0)
             } catch (e: Exception) { log("Error Materias: ${e.message}") }
         }, Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Insertar Materia") }
 
@@ -293,7 +296,7 @@ fun SeguridadTab(log: (String) -> Unit, onDataChanged: () -> Unit) {
                     put("periodo", "2024"); put("lastUpdate", System.currentTimeMillis())
                 }
                 context.contentResolver.insert(Uri.parse("content://com.example.sicenet.provider/kardex"), v)
-                log("Kardex OK"); onDataChanged()
+                log("Kardex OK"); onDataChanged(1)
             } catch (e: Exception) { log("Error Kardex: ${e.message}") }
         }, Modifier.fillMaxWidth()) { Text("Insertar Kardex") }
     }
