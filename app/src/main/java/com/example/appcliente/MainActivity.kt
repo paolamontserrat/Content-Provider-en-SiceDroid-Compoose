@@ -30,7 +30,6 @@ import com.example.appcliente.ui.theme.AppClienteTheme
 import java.text.SimpleDateFormat
 import java.util.*
 
-// Modelos de datos
 data class Materia(val id: String, val nombre: String, val docente: String, val dias: String, val grupo: String)
 data class KardexItem(val id: String, val materia: String, val calificacion: String, val periodo: String)
 
@@ -40,28 +39,26 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             AppClienteTheme {
-                SicenetCompleteApp()
+                SicenetCompleteApp() //Llama al composable de la app
             }
         }
     }
-
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun SicenetCompleteApp() {
+        //controla la pestaña que está seleccionada actualmente
         var selectedTab by remember { mutableIntStateOf(0) }
-        // val debugLogs = remember { mutableStateListOf<String>() }
 
-        // Estados para los datos
+        //almacena las listas de datos obtenidas del Content Provider
         var listaMaterias by remember { mutableStateOf(listOf<Materia>()) }
         var listaKardex by remember { mutableStateOf(listOf<KardexItem>()) }
 
         fun addLog(msg: String) {
             val time = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
-            // debugLogs.add("[$time] $msg")
-            Log.d("SICENET_CLIENT", msg)
+            Log.d("SICENET_CLIENT", "[$time] $msg")
         }
 
-        // Función para refrescar todo
+        //actualizar todos los datos desde el Content Provider
         val refreshAll = {
             listaMaterias = queryMaterias(::addLog)
             listaKardex = queryKardex(::addLog)
@@ -71,24 +68,30 @@ class MainActivity : ComponentActivity() {
             topBar = { TopAppBar(title = { Text("Sicenet Client Pro") }) },
             bottomBar = {
                 NavigationBar {
-                    NavigationBarItem(selected = selectedTab == 0, onClick = { selectedTab = 0 }, icon = { Icon(Icons.Default.DateRange, null) }, label = { Text("Carga") })
-                    NavigationBarItem(selected = selectedTab == 1, onClick = { selectedTab = 1 }, icon = { Icon(Icons.Default.List, null) }, label = { Text("Kardex") })
-                    NavigationBarItem(selected = selectedTab == 2, onClick = { selectedTab = 2 }, icon = { Icon(Icons.Default.Lock, null) }, label = { Text("Seguridad") })
+                    NavigationBarItem(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        icon = { Icon(Icons.Default.DateRange, null) },
+                        label = { Text("Carga") }
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        icon = { Icon(Icons.Default.List, null) },
+                        label = { Text("Kardex") }
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
+                        icon = { Icon(Icons.Default.Lock, null) },
+                        label = { Text("Seguridad") }
+                    )
                 }
             }
         ) { padding ->
             Column(modifier = Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
-                /*
-                Surface(
-                    modifier = Modifier.fillMaxWidth().height(100.dp).padding(vertical = 4.dp),
-                    color = Color.Black, shape = MaterialTheme.shapes.extraSmall
-                ) {
-                    LazyColumn(modifier = Modifier.padding(8.dp)) {
-                        items(debugLogs) { log -> Text(log, color = Color.Cyan, fontSize = 10.sp, fontFamily = FontFamily.Monospace) }
-                    }
-                }
-                */
                 Spacer(Modifier.height(8.dp))
+                //pestaña seleccionada
                 when (selectedTab) {
                     0 -> CargaTab(onQuery = refreshAll, items = listaMaterias, onDelete = { id -> deleteRow("materias", id, ::addLog, refreshAll) })
                     1 -> KardexTab(onQuery = refreshAll, items = listaKardex, onDelete = { id -> deleteRow("kardex", id, ::addLog, refreshAll) })
@@ -100,7 +103,6 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
     private fun queryMaterias(log: (String) -> Unit): List<Materia> {
         val list = mutableListOf<Materia>()
         try {
@@ -109,12 +111,9 @@ class MainActivity : ComponentActivity() {
                 val iNom = c.getColumnIndex("nombre")
                 val iDoc = c.getColumnIndex("docente")
                 val iGru = c.getColumnIndex("grupo")
-                val iLun = c.getColumnIndex("lunes")
-                val iMar = c.getColumnIndex("martes")
-                val iMie = c.getColumnIndex("miercoles")
-                val iJue = c.getColumnIndex("jueves")
-                val iVie = c.getColumnIndex("viernes")
-                val iSab = c.getColumnIndex("sabado")
+                val iLun = c.getColumnIndex("lunes"); val iMar = c.getColumnIndex("martes")
+                val iMie = c.getColumnIndex("miercoles"); val iJue = c.getColumnIndex("jueves")
+                val iVie = c.getColumnIndex("viernes"); val iSab = c.getColumnIndex("sabado")
                 val iDom = c.getColumnIndex("domingo")
 
                 while (c.moveToNext()) {
@@ -122,6 +121,7 @@ class MainActivity : ComponentActivity() {
                     val nom = if(iNom != -1) c.getString(iNom) else "N/A"
                     val doc = if(iDoc != -1) c.getString(iDoc) else "-"
                     val gru = if(iGru != -1) c.getString(iGru) ?: "-" else "-"
+
                     val diasList = mutableListOf<String>()
                     if (iLun != -1 && !c.getString(iLun).isNullOrBlank()) diasList.add("Lun")
                     if (iMar != -1 && !c.getString(iMar).isNullOrBlank()) diasList.add("Mar")
@@ -130,14 +130,14 @@ class MainActivity : ComponentActivity() {
                     if (iVie != -1 && !c.getString(iVie).isNullOrBlank()) diasList.add("Vie")
                     if (iSab != -1 && !c.getString(iSab).isNullOrBlank()) diasList.add("Sab")
                     if (iDom != -1 && !c.getString(iDom).isNullOrBlank()) diasList.add("Dom")
+                    
                     list.add(Materia(id, nom, doc, diasList.joinToString(", "), gru))
                 }
-                log("Carga: ${list.size} materias.")
-            } ?: log("Sesión cerrada o error.")
-        } catch (e: Exception) { log("Error query: ${e.message}") }
+                log("Carga: ${list.size} materias encontradas.")
+            } ?: log("No se pudo acceder al proveedor o sesión cerrada.")
+        } catch (e: Exception) { log("Error en query materias: ${e.message}") }
         return list
     }
-
     private fun queryKardex(log: (String) -> Unit): List<KardexItem> {
         val list = mutableListOf<KardexItem>()
         try {
@@ -153,21 +153,19 @@ class MainActivity : ComponentActivity() {
                     val per = if(iPer != -1) c.getString(iPer) else "2024"
                     list.add(KardexItem(id, mat, cal, per))
                 }
-                log("Kardex: ${list.size} registros.")
+                log("Kardex: ${list.size} registros encontrados.")
             }
-        } catch (e: Exception) { log("Error Kardex: ${e.message}") }
+        } catch (e: Exception) { log("Error en query kardex: ${e.message}") }
         return list
     }
-
     private fun deleteRow(table: String, id: String, log: (String) -> Unit, onDone: () -> Unit) {
         try {
             val deleted = contentResolver.delete(Uri.parse("content://com.example.sicenet.provider/$table"), "id = ?", arrayOf(id))
-            log("🗑️ Borrado ID $id: $deleted filas")
-            onDone()
-        } catch (e: Exception) { log("Error al borrar: ${e.message}") }
+            log("🗑️ Fila con ID $id eliminada de $table ($deleted filas afectadas).")
+            onDone() // Refresca los datos tras borrar
+        } catch (e: Exception) { log("Error al borrar registro: ${e.message}") }
     }
 }
-
 @Composable
 fun CargaTab(onQuery: () -> Unit, items: List<Materia>, onDelete: (String) -> Unit) {
     Column {
@@ -201,7 +199,6 @@ fun CargaTab(onQuery: () -> Unit, items: List<Materia>, onDelete: (String) -> Un
         }
     }
 }
-
 @Composable
 fun KardexTab(onQuery: () -> Unit, items: List<KardexItem>, onDelete: (String) -> Unit) {
     val grouped = items.groupBy { it.periodo }
@@ -231,10 +228,11 @@ fun KardexTab(onQuery: () -> Unit, items: List<KardexItem>, onDelete: (String) -
         }
     }
 }
-
 @Composable
 fun SeguridadTab(log: (String) -> Unit, onDataChanged: (Int) -> Unit) {
     val context = LocalContext.current
+    
+    // Estados para los campos de entrada de Materias
     var mClave by remember { mutableStateOf("") }
     var mNombre by remember { mutableStateOf("") }
     var mDocente by remember { mutableStateOf("") }
@@ -245,6 +243,7 @@ fun SeguridadTab(log: (String) -> Unit, onDataChanged: (Int) -> Unit) {
         diasLabels.forEach { put(it, false) }
     } }
 
+    // Estados para los campos de entrada de Kardex
     var kClave by remember { mutableStateOf("") }
     var kMateria by remember { mutableStateOf("") }
     var kCalificacion by remember { mutableStateOf("") }
@@ -277,17 +276,21 @@ fun SeguridadTab(log: (String) -> Unit, onDataChanged: (Int) -> Unit) {
                     diasLabels.forEach { dia -> put(dia, if (diasSeleccionados[dia] == true) mHora else "") }
                     put("lastUpdate", System.currentTimeMillis())
                 }
+                //inclusion en el Content Provider
                 context.contentResolver.insert(Uri.parse("content://com.example.sicenet.provider/materias"), v)
-                log("Materia OK"); onDataChanged(0)
-            } catch (e: Exception) { log("Error Materias: ${e.message}") }
+                log("Materia insertada correctamente")
+                onDataChanged(0) // Notifica cambio y redirige a pestaña 0 (Carga)
+            } catch (e: Exception) { log("Error al insertar materia: ${e.message}") }
         }, Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Insertar Materia") }
 
         Spacer(Modifier.height(20.dp))
+
         Text("CRUD Kardex", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
         OutlinedTextField(value = kClave, onValueChange = { kClave = it }, label = { Text("Clave Kardex") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = kMateria, onValueChange = { kMateria = it }, label = { Text("Nombre Materia") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = kCalificacion, onValueChange = { kCalificacion = it }, label = { Text("Calificación") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = kAcreditacion, onValueChange = { kAcreditacion = it }, label = { Text("Acreditación") }, modifier = Modifier.fillMaxWidth())
+        
         Button(onClick = {
             try {
                 val v = ContentValues().apply {
@@ -295,9 +298,11 @@ fun SeguridadTab(log: (String) -> Unit, onDataChanged: (Int) -> Unit) {
                     put("calificacion", kCalificacion); put("acreditacion", kAcreditacion)
                     put("periodo", "2024"); put("lastUpdate", System.currentTimeMillis())
                 }
+                //inclusion en el Content Provider
                 context.contentResolver.insert(Uri.parse("content://com.example.sicenet.provider/kardex"), v)
-                log("Kardex OK"); onDataChanged(1)
-            } catch (e: Exception) { log("Error Kardex: ${e.message}") }
+                log("Registro de Kardex insertado correctamente")
+                onDataChanged(1) // Notifica cambio y redirige a pestaña 1 (Kardex)
+            } catch (e: Exception) { log("Error al insertar kardex: ${e.message}") }
         }, Modifier.fillMaxWidth()) { Text("Insertar Kardex") }
     }
 }
